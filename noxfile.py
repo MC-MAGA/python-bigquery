@@ -116,6 +116,7 @@ def default(session, install_extras=True):
     session.run(
         "py.test",
         "--quiet",
+        "-W default::PendingDeprecationWarning",
         "--cov=google/cloud/bigquery",
         "--cov=tests/unit",
         "--cov-append",
@@ -218,6 +219,9 @@ def system(session):
     # Data Catalog needed for the column ACL test with a real Policy Tag.
     session.install("google-cloud-datacatalog", "-c", constraints_path)
 
+    # Resource Manager needed for test with a real Resource Tag.
+    session.install("google-cloud-resource-manager", "-c", constraints_path)
+
     if session.python in ["3.11", "3.12"]:
         extras = "[bqstorage,ipywidgets,pandas,tqdm,opentelemetry]"
     else:
@@ -231,6 +235,7 @@ def system(session):
     session.run(
         "py.test",
         "--quiet",
+        "-W default::PendingDeprecationWarning",
         os.path.join("tests", "system"),
         *session.posargs,
     )
@@ -299,6 +304,7 @@ def snippets(session):
     session.run(
         "py.test",
         "samples",
+        "-W default::PendingDeprecationWarning",
         "--ignore=samples/desktopapp",
         "--ignore=samples/magics",
         "--ignore=samples/geography",
@@ -340,14 +346,6 @@ def prerelease_deps(session):
         "pyarrow",
     )
     session.install(
-        "--extra-index-url",
-        "https://pypi.anaconda.org/scipy-wheels-nightly/simple",
-        "--prefer-binary",
-        "--pre",
-        "--upgrade",
-        "pandas",
-    )
-    session.install(
         "--pre",
         "--upgrade",
         "IPython",
@@ -355,6 +353,7 @@ def prerelease_deps(session):
         "ipywidgets",
         "tqdm",
         "git+https://github.com/pypa/packaging.git",
+        "pandas",
     )
 
     session.install(
@@ -370,6 +369,7 @@ def prerelease_deps(session):
     session.install(
         "freezegun",
         "google-cloud-datacatalog",
+        "google-cloud-resource-manager",
         "google-cloud-storage",
         "google-cloud-testutils",
         "psutil",
@@ -408,9 +408,23 @@ def prerelease_deps(session):
     session.run("python", "-m", "pip", "freeze")
 
     # Run all tests, except a few samples tests which require extra dependencies.
-    session.run("py.test", "tests/unit")
-    session.run("py.test", "tests/system")
-    session.run("py.test", "samples/tests")
+    session.run(
+        "py.test",
+        "tests/unit",
+        "-W default::PendingDeprecationWarning",
+    )
+
+    session.run(
+        "py.test",
+        "tests/system",
+        "-W default::PendingDeprecationWarning",
+    )
+
+    session.run(
+        "py.test",
+        "samples/tests",
+        "-W default::PendingDeprecationWarning",
+    )
 
 
 @nox.session(python=DEFAULT_PYTHON_VERSION)
@@ -452,7 +466,7 @@ def blacken(session):
     session.run("black", *BLACK_PATHS)
 
 
-@nox.session(python="3.9")
+@nox.session(python="3.10")
 @_calculate_duration
 def docs(session):
     """Build the docs."""
