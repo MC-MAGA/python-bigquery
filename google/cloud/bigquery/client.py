@@ -44,6 +44,8 @@ from typing import (
 import uuid
 import warnings
 
+import requests
+
 from google import resumable_media  # type: ignore
 from google.resumable_media.requests import MultipartUpload  # type: ignore
 from google.resumable_media.requests import ResumableUpload
@@ -65,6 +67,7 @@ except ImportError:
     DEFAULT_BQSTORAGE_CLIENT_INFO = None  # type: ignore
 
 
+from google.auth.credentials import Credentials
 from google.cloud.bigquery._http import Connection
 from google.cloud.bigquery import _job_helpers
 from google.cloud.bigquery import _pandas_helpers
@@ -126,6 +129,7 @@ pandas = (
     _versions_helpers.PANDAS_VERSIONS.try_import()
 )  # mypy check fails because pandas import is outside module, there are type: ignore comments related to this
 
+
 ResumableTimeoutType = Union[
     None, float, Tuple[float, float]
 ]  # for resumable media methods
@@ -133,8 +137,6 @@ ResumableTimeoutType = Union[
 if typing.TYPE_CHECKING:  # pragma: NO COVER
     # os.PathLike is only subscriptable in Python 3.9+, thus shielding with a condition.
     PathType = Union[str, bytes, os.PathLike[str], os.PathLike[bytes]]
-    import requests  # required by api-core
-
 _DEFAULT_CHUNKSIZE = 100 * 1024 * 1024  # 100 MB
 _MAX_MULTIPART_SIZE = 5 * 1024 * 1024
 _DEFAULT_NUM_RETRIES = 6
@@ -231,15 +233,23 @@ class Client(ClientWithProject):
 
     def __init__(
         self,
-        project=None,
-        credentials=None,
-        _http=None,
-        location=None,
-        default_query_job_config=None,
-        default_load_job_config=None,
-        client_info=None,
-        client_options=None,
+        project: Optional[str] = None,
+        credentials: Optional[Credentials] = None,
+        _http: Optional[requests.Session] = None,
+        location: Optional[str] = None,
+        default_query_job_config: Optional[QueryJobConfig] = None,
+        default_load_job_config: Optional[LoadJobConfig] = None,
+        client_info: Optional[google.api_core.client_info.ClientInfo] = None,
+        client_options: Optional[
+            Union[google.api_core.client_options.ClientOptions, Dict[str, Any]]
+        ] = None,
     ) -> None:
+        if client_options is None:
+            client_options = {}
+        if isinstance(client_options, dict):
+            client_options = google.api_core.client_options.from_dict(client_options)
+        # assert isinstance(client_options, google.api_core.client_options.ClientOptions)
+
         super(Client, self).__init__(
             project=project,
             credentials=credentials,
@@ -247,14 +257,10 @@ class Client(ClientWithProject):
             _http=_http,
         )
 
-        kw_args = {"client_info": client_info}
+        kw_args: Dict[str, Any] = {"client_info": client_info}
         bq_host = _get_bigquery_host()
         kw_args["api_endpoint"] = bq_host if bq_host != _DEFAULT_HOST else None
         client_universe = None
-        if client_options is None:
-            client_options = {}
-        if isinstance(client_options, dict):
-            client_options = google.api_core.client_options.from_dict(client_options)
         if client_options.api_endpoint:
             api_endpoint = client_options.api_endpoint
             kw_args["api_endpoint"] = api_endpoint
@@ -328,6 +334,15 @@ class Client(ClientWithProject):
     ) -> str:
         """Get the email address of the project's BigQuery service account
 
+        Example:
+
+        .. code-block:: python
+
+            from google.cloud import bigquery
+            client = bigquery.Client()
+            client.get_service_account_email()
+            # returns an email similar to: my_service_account@my-project.iam.gserviceaccount.com
+
         Note:
             This is the service account that BigQuery uses to manage tables
             encrypted by a key in KMS.
@@ -344,13 +359,6 @@ class Client(ClientWithProject):
         Returns:
             str:
                 service account email address
-
-        Example:
-
-            >>> from google.cloud import bigquery
-            >>> client = bigquery.Client()
-            >>> client.get_service_account_email()
-            my_service_account@my-project.iam.gserviceaccount.com
 
         """
         if project is None:
@@ -629,8 +637,18 @@ class Client(ClientWithProject):
     ) -> Dataset:
         """API call: create the dataset via a POST request.
 
+
         See
         https://cloud.google.com/bigquery/docs/reference/rest/v2/datasets/insert
+
+        Example:
+
+        .. code-block:: python
+
+            from google.cloud import bigquery
+            client = bigquery.Client()
+            dataset = bigquery.Dataset('my_project.my_dataset')
+            dataset = client.create_dataset(dataset)
 
         Args:
             dataset (Union[ \
@@ -658,14 +676,6 @@ class Client(ClientWithProject):
         Raises:
             google.cloud.exceptions.Conflict:
                 If the dataset already exists.
-
-        Example:
-
-            >>> from google.cloud import bigquery
-            >>> client = bigquery.Client()
-            >>> dataset = bigquery.Dataset('my_project.my_dataset')
-            >>> dataset = client.create_dataset(dataset)
-
         """
         dataset = self._dataset_from_arg(dataset)
         if isinstance(dataset, DatasetReference):
@@ -1180,6 +1190,19 @@ class Client(ClientWithProject):
         must be provided. If a field is listed in ``fields`` and is ``None`` in
         ``dataset``, it will be deleted.
 
+        For example, to update the default expiration times, specify
+        both properties in the ``fields`` argument:
+
+        .. code-block:: python
+
+            bigquery_client.update_dataset(
+                dataset,
+                [
+                    "default_partition_expiration_ms",
+                    "default_table_expiration_ms",
+                ]
+            )
+
         If ``dataset.etag`` is not ``None``, the update will only
         succeed if the dataset on the server has the same ETag. Thus
         reading a dataset with ``get_dataset``, changing its fields,
@@ -1194,19 +1217,6 @@ class Client(ClientWithProject):
                 The properties of ``dataset`` to change. These are strings
                 corresponding to the properties of
                 :class:`~google.cloud.bigquery.dataset.Dataset`.
-
-                For example, to update the default expiration times, specify
-                both properties in the ``fields`` argument:
-
-                .. code-block:: python
-
-                    bigquery_client.update_dataset(
-                        dataset,
-                        [
-                            "default_partition_expiration_ms",
-                            "default_table_expiration_ms",
-                        ]
-                    )
             retry (Optional[google.api_core.retry.Retry]):
                 How to retry the RPC.
             timeout (Optional[float]):
@@ -1250,6 +1260,15 @@ class Client(ClientWithProject):
         must be provided. If a field is listed in ``fields`` and is ``None``
         in ``model``, the field value will be deleted.
 
+        For example, to update the descriptive properties of the model,
+        specify them in the ``fields`` argument:
+
+        .. code-block:: python
+
+            bigquery_client.update_model(
+                model, ["description", "friendly_name"]
+            )
+
         If ``model.etag`` is not ``None``, the update will only succeed if
         the model on the server has the same ETag. Thus reading a model with
         ``get_model``, changing its fields, and then passing it to
@@ -1262,15 +1281,6 @@ class Client(ClientWithProject):
                 The properties of ``model`` to change. These are strings
                 corresponding to the properties of
                 :class:`~google.cloud.bigquery.model.Model`.
-
-                For example, to update the descriptive properties of the model,
-                specify them in the ``fields`` argument:
-
-                .. code-block:: python
-
-                    bigquery_client.update_model(
-                        model, ["description", "friendly_name"]
-                    )
             retry (Optional[google.api_core.retry.Retry]):
                 A description of how to retry the API call.
             timeout (Optional[float]):
@@ -1314,6 +1324,15 @@ class Client(ClientWithProject):
         must be provided. If a field is listed in ``fields`` and is ``None``
         in ``routine``, the field value will be deleted.
 
+        For example, to update the description property of the routine,
+        specify it in the ``fields`` argument:
+
+        .. code-block:: python
+
+            bigquery_client.update_routine(
+                routine, ["description"]
+            )
+
         .. warning::
            During beta, partial updates are not supported. You must provide
            all fields in the resource.
@@ -1332,15 +1351,6 @@ class Client(ClientWithProject):
             fields (Sequence[str]):
                 The fields of ``routine`` to change, spelled as the
                 :class:`~google.cloud.bigquery.routine.Routine` properties.
-
-                For example, to update the description property of the routine,
-                specify it in the ``fields`` argument:
-
-                .. code-block:: python
-
-                    bigquery_client.update_routine(
-                        routine, ["description"]
-                    )
             retry (Optional[google.api_core.retry.Retry]):
                 A description of how to retry the API call.
             timeout (Optional[float]):
@@ -1388,6 +1398,16 @@ class Client(ClientWithProject):
         must be provided. If a field is listed in ``fields`` and is ``None``
         in ``table``, the field value will be deleted.
 
+        For example, to update the descriptive properties of the table,
+        specify them in the ``fields`` argument:
+
+        .. code-block:: python
+
+            bigquery_client.update_table(
+                table,
+                ["description", "friendly_name"]
+            )
+
         If ``table.etag`` is not ``None``, the update will only succeed if
         the table on the server has the same ETag. Thus reading a table with
         ``get_table``, changing its fields, and then passing it to
@@ -1399,16 +1419,6 @@ class Client(ClientWithProject):
             fields (Sequence[str]):
                 The fields of ``table`` to change, spelled as the
                 :class:`~google.cloud.bigquery.table.Table` properties.
-
-                For example, to update the descriptive properties of the table,
-                specify them in the ``fields`` argument:
-
-                .. code-block:: python
-
-                    bigquery_client.update_table(
-                        table,
-                        ["description", "friendly_name"]
-                    )
             retry (Optional[google.api_core.retry.Retry]):
                 A description of how to retry the API call.
             timeout (Optional[float]):

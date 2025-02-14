@@ -16,8 +16,10 @@ import collections
 import datetime
 import decimal
 import functools
+import gc
 import operator
 import queue
+from typing import Union
 from unittest import mock
 import warnings
 
@@ -46,6 +48,7 @@ from google.cloud.bigquery import exceptions
 from google.cloud.bigquery import _pyarrow_helpers
 from google.cloud.bigquery import _versions_helpers
 from google.cloud.bigquery import schema
+from google.cloud.bigquery._pandas_helpers import determine_requested_streams
 
 pyarrow = _versions_helpers.PYARROW_VERSIONS.try_import()
 
@@ -1845,6 +1848,98 @@ def test__download_table_bqstorage(
 
 
 @pytest.mark.skipif(isinstance(pyarrow, mock.Mock), reason="Requires `pyarrow`")
+def test__download_table_bqstorage_shuts_down_workers(
+    monkeypatch,
+    module_under_test,
+):
+    """Regression test for https://github.com/googleapis/python-bigquery/issues/2032
+
+    Make sure that when the top-level iterator goes out of scope (is deleted),
+    the child threads are also stopped.
+    """
+    from google.cloud.bigquery import dataset
+    from google.cloud.bigquery import table
+    import google.cloud.bigquery_storage_v1.reader
+    import google.cloud.bigquery_storage_v1.types
+
+    monkeypatch.setattr(
+        _versions_helpers.BQ_STORAGE_VERSIONS, "_installed_version", None
+    )
+    monkeypatch.setattr(bigquery_storage, "__version__", "2.5.0")
+
+    # Create a fake stream with a decent number of rows.
+    arrow_schema = pyarrow.schema(
+        [
+            ("int_col", pyarrow.int64()),
+            ("str_col", pyarrow.string()),
+        ]
+    )
+    arrow_rows = pyarrow.record_batch(
+        [
+            pyarrow.array([0, 1, 2], type=pyarrow.int64()),
+            pyarrow.array(["a", "b", "c"], type=pyarrow.string()),
+        ],
+        schema=arrow_schema,
+    )
+    session = google.cloud.bigquery_storage_v1.types.ReadSession()
+    session.data_format = "ARROW"
+    session.arrow_schema = {"serialized_schema": arrow_schema.serialize().to_pybytes()}
+    session.streams = [
+        google.cloud.bigquery_storage_v1.types.ReadStream(name=name)
+        for name in ("stream/s0", "stream/s1", "stream/s2")
+    ]
+    bqstorage_client = mock.create_autospec(
+        bigquery_storage.BigQueryReadClient, instance=True
+    )
+    reader = mock.create_autospec(
+        google.cloud.bigquery_storage_v1.reader.ReadRowsStream, instance=True
+    )
+    reader.__iter__.return_value = [
+        google.cloud.bigquery_storage_v1.types.ReadRowsResponse(
+            arrow_schema={"serialized_schema": arrow_schema.serialize().to_pybytes()},
+            arrow_record_batch={
+                "serialized_record_batch": arrow_rows.serialize().to_pybytes()
+            },
+        )
+        for _ in range(100)
+    ]
+    reader.rows.return_value = google.cloud.bigquery_storage_v1.reader.ReadRowsIterable(
+        reader, read_session=session
+    )
+    bqstorage_client.read_rows.return_value = reader
+    bqstorage_client.create_read_session.return_value = session
+    table_ref = table.TableReference(
+        dataset.DatasetReference("project-x", "dataset-y"),
+        "table-z",
+    )
+    download_state = module_under_test._DownloadState()
+    assert download_state.started_workers == 0
+    assert download_state.finished_workers == 0
+
+    result_gen = module_under_test._download_table_bqstorage(
+        "some-project",
+        table_ref,
+        bqstorage_client,
+        max_queue_size=1,
+        page_to_item=module_under_test._bqstorage_page_to_arrow,
+        download_state=download_state,
+    )
+
+    result_gen_iter = iter(result_gen)
+    next(result_gen_iter)
+    assert download_state.started_workers == 3
+    assert download_state.finished_workers == 0
+
+    # Stop iteration early and simulate the variables going out of scope
+    # to be doubly sure that the worker threads are supposed to be cleaned up.
+    del result_gen, result_gen_iter
+    gc.collect()
+
+    assert download_state.started_workers == 3
+    assert download_state.finished_workers == 3
+
+
+@pytest.mark.skipif(isinstance(pyarrow, mock.Mock), reason="Requires `pyarrow`")
 def test_download_arrow_row_iterator_unknown_field_type(module_under_test):
     fake_page = api_core.page_iterator.Page(
         parent=mock.Mock(),
@@ -2002,6 +2097,23 @@ def test_bq_to_arrow_field_type_override(module_under_test):
     )
 
 
+@pytest.mark.skipif(isinstance(pyarrow, mock.Mock), reason="Requires `pyarrow`")
+def test_bq_to_arrow_field_set_repeated_nullable_false(module_under_test):
+    assert (
+        module_under_test.bq_to_arrow_field(
+            schema.SchemaField("name", "STRING", mode="REPEATED")
+        ).nullable
+        is False
+    )
+
+    assert (
+        module_under_test.bq_to_arrow_field(
+            schema.SchemaField("name", "STRING", mode="NULLABLE")
+        ).nullable
+        is True
+    )
+
+
 @pytest.mark.parametrize(
     "field_type, metadata",
     [
@@ -2036,3 +2148,32 @@ def test_verify_pandas_imports_no_db_dtypes(module_under_test, monkeypatch):
     monkeypatch.setattr(module_under_test, "db_dtypes", None)
     with pytest.raises(ValueError, match="Please install the 'db-dtypes' package"):
         module_under_test.verify_pandas_imports()
+
+
+@pytest.mark.parametrize(
+    "preserve_order, max_stream_count, expected_requested_streams",
+    [
+        # If preserve_order is set/True, it takes precedence:
+        (True, 10, 1),  # use 1
+        (True, None, 1),  # use 1
+        # If preserve_order is not set check max_stream_count:
+        (False, 10, 10),  # max_stream_count (X) takes precedence
+        (False, None, 0),  # Unbounded (0) when both are unset
+    ],
+)
+def test_determine_requested_streams(
+    preserve_order: bool,
+    max_stream_count: Union[int, None],
+    expected_requested_streams: int,
+):
+    """Tests various combinations of preserve_order and max_stream_count."""
+    actual_requested_streams = determine_requested_streams(
+        preserve_order, max_stream_count
+    )
+    assert actual_requested_streams == expected_requested_streams
+
+
+def test_determine_requested_streams_invalid_max_stream_count():
+    """Tests that a ValueError is raised if max_stream_count is negative."""
+    with pytest.raises(ValueError):
+        determine_requested_streams(preserve_order=False, max_stream_count=-1)

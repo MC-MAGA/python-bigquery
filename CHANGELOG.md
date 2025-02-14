@@ -5,6 +5,81 @@
 [1]: https://pypi.org/project/google-cloud-bigquery/#history
 
 
+## [3.29.0](https://github.com/googleapis/python-bigquery/compare/v3.28.0...v3.29.0) (2025-01-21)
+
+
+### Features
+
+* Add ExternalCatalogTableOptions class and tests ([#2116](https://github.com/googleapis/python-bigquery/issues/2116)) ([cdc1a6e](https://github.com/googleapis/python-bigquery/commit/cdc1a6e1623b8305c6a6a1a481b3365e866a073d))
+
+
+### Bug Fixes
+
+* Add default value in SchemaField.from_api_repr() ([#2115](https://github.com/googleapis/python-bigquery/issues/2115)) ([7de6822](https://github.com/googleapis/python-bigquery/commit/7de6822e1c556a68cb8d50e90664c094697cca1d))
+
+## [3.28.0](https://github.com/googleapis/python-bigquery/compare/v3.27.0...v3.28.0) (2025-01-15)
+
+
+### Features
+
+* Add property for `allowNonIncrementalDefinition` for materialized view ([#2084](https://github.com/googleapis/python-bigquery/issues/2084)) ([3359ef3](https://github.com/googleapis/python-bigquery/commit/3359ef37b90243bea2d9e68bb996fe5d736f304c))
+* Add property for maxStaleness in table definitions ([#2087](https://github.com/googleapis/python-bigquery/issues/2087)) ([729322c](https://github.com/googleapis/python-bigquery/commit/729322c2288a30464f2f135ba18b9c4aa7d2f0da))
+* Add type hints to Client ([#2044](https://github.com/googleapis/python-bigquery/issues/2044)) ([40529de](https://github.com/googleapis/python-bigquery/commit/40529de923e25c41c6728c121b9c82a042967ada))
+* Adds ExternalCatalogDatasetOptions and tests ([#2111](https://github.com/googleapis/python-bigquery/issues/2111)) ([b929a90](https://github.com/googleapis/python-bigquery/commit/b929a900d49e2c15897134209ed9de5fc7f238cd))
+* Adds ForeignTypeInfo class and tests ([#2110](https://github.com/googleapis/python-bigquery/issues/2110)) ([55ca63c](https://github.com/googleapis/python-bigquery/commit/55ca63c23fcb56573e2de67e4f7899939628c4a1))
+* Adds new input validation function similar to isinstance. ([#2107](https://github.com/googleapis/python-bigquery/issues/2107)) ([a2bebb9](https://github.com/googleapis/python-bigquery/commit/a2bebb95c5ef32ac7c7cbe19c3e7a9412cbee60d))
+* Adds StorageDescriptor and tests ([#2109](https://github.com/googleapis/python-bigquery/issues/2109)) ([6be0272](https://github.com/googleapis/python-bigquery/commit/6be0272ff25dac97a38ae4ee5aa02016dc82a0d8))
+* Adds the SerDeInfo class and tests ([#2108](https://github.com/googleapis/python-bigquery/issues/2108)) ([62960f2](https://github.com/googleapis/python-bigquery/commit/62960f255d05b15940a8d2cdc595592175fada11))
+* Migrate to pyproject.toml ([#2041](https://github.com/googleapis/python-bigquery/issues/2041)) ([1061611](https://github.com/googleapis/python-bigquery/commit/106161180ead01aca1ead909cf06ca559f68666d))
+* Preserve unknown fields from the REST API representation in `SchemaField` ([#2097](https://github.com/googleapis/python-bigquery/issues/2097)) ([aaf1eb8](https://github.com/googleapis/python-bigquery/commit/aaf1eb85ada95ab866be0199812ea7f5c7f50766))
+* Resource tags in dataset ([#2090](https://github.com/googleapis/python-bigquery/issues/2090)) ([3e13016](https://github.com/googleapis/python-bigquery/commit/3e130166f43dcc06704fe90edf9068dfd44842a6))
+* Support setting max_stream_count when fetching query result ([#2051](https://github.com/googleapis/python-bigquery/issues/2051)) ([d461297](https://github.com/googleapis/python-bigquery/commit/d4612979b812d2a835e47200f27a87a66bcb856a))
+
+
+### Bug Fixes
+
+* Allow geopandas 1.x ([#2065](https://github.com/googleapis/python-bigquery/issues/2065)) ([f2ab8cb](https://github.com/googleapis/python-bigquery/commit/f2ab8cbfe00d442ad3b40683ecfec320e53b4688))
+
+
+### Documentation
+
+* Render fields correctly for update calls ([#2055](https://github.com/googleapis/python-bigquery/issues/2055)) ([a4d9534](https://github.com/googleapis/python-bigquery/commit/a4d9534a900f13ae7355904cda05097d781f27e3))
+
+## [3.27.0](https://github.com/googleapis/python-bigquery/compare/v3.26.0...v3.27.0) (2024-11-01)
+
+
+### Features
+
+* Updates to allow users to set max_stream_count ([#2039](https://github.com/googleapis/python-bigquery/issues/2039)) ([7372ad6](https://github.com/googleapis/python-bigquery/commit/7372ad659fd3316a602e90f224e9a3304d4c1419))
+
+## [3.26.0](https://github.com/googleapis/python-bigquery/compare/v3.25.0...v3.26.0) (2024-09-25)
+
+
+### Features
+
+* Include LegacyPandasError in init imports ([#2014](https://github.com/googleapis/python-bigquery/issues/2014)) ([3ab5e95](https://github.com/googleapis/python-bigquery/commit/3ab5e95984ad521027a4e1efd9f16767403e668d))
+* Use `bigquery-magics` package for the `%%bigquery` magic ([#1965](https://github.com/googleapis/python-bigquery/issues/1965)) ([60128a5](https://github.com/googleapis/python-bigquery/commit/60128a522375823422f238312521a2ce356d9177))
+
+
+### Bug Fixes
+
+* Add docfx to the presubmit configuration and delete docs-presubmit ([#1995](https://github.com/googleapis/python-bigquery/issues/1995)) ([bd83cfd](https://github.com/googleapis/python-bigquery/commit/bd83cfd2eb25cec58d59af8048f5188d748b083d))
+* Add warning when encountering unknown field types  ([#1989](https://github.com/googleapis/python-bigquery/issues/1989)) ([8f5a41d](https://github.com/googleapis/python-bigquery/commit/8f5a41d283a965ca161019588d3a3b2947b04b5b))
+* Allow protobuf 5.x; require protobuf &gt;=3.20.2; proto-plus >=1.22.3 ([#1976](https://github.com/googleapis/python-bigquery/issues/1976)) ([57bf873](https://github.com/googleapis/python-bigquery/commit/57bf873474382cc2cb34243b704bc928fa1b64c6))
+* Do not set job timeout extra property if None ([#1987](https://github.com/googleapis/python-bigquery/issues/1987)) ([edcb79c](https://github.com/googleapis/python-bigquery/commit/edcb79ca69dba30d8102abebb9d53bc76e4882ee))
+* Set pyarrow field nullable to False for a BigQuery field in REPEATED mode ([#1999](https://github.com/googleapis/python-bigquery/issues/1999)) ([5352870](https://github.com/googleapis/python-bigquery/commit/5352870283ca7d4652aefc73f12645bcf6e1363c))
+
+
+### Dependencies
+
+* Bump min version of google-api-core and google-cloud-core to 2.x ([#1972](https://github.com/googleapis/python-bigquery/issues/1972)) ([a958732](https://github.com/googleapis/python-bigquery/commit/a958732aed7d9bd51ffde3dc0e6cae9ad7455b54))
+
+
+### Documentation
+
+* Add short mode query sample & test ([#1978](https://github.com/googleapis/python-bigquery/issues/1978)) ([ba61a8a](https://github.com/googleapis/python-bigquery/commit/ba61a8ab0da541ba1940211875d7ea2e9e17dfa8))
+* Improve QueryJobConfig.destination docstring ([#2016](https://github.com/googleapis/python-bigquery/issues/2016)) ([1b4cca0](https://github.com/googleapis/python-bigquery/commit/1b4cca0a3cc788a4570705572d5f04172f6b4b24))
+
 ## [3.25.0](https://github.com/googleapis/python-bigquery/compare/v3.24.0...v3.25.0) (2024-06-17)
 
 

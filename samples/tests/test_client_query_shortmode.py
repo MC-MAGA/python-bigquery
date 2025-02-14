@@ -4,28 +4,23 @@
 # you may not use this file except in compliance with the License.
 # You may obtain a copy of the License at
 #
-# http://www.apache.org/licenses/LICENSE-2.0
+#     https://www.apache.org/licenses/LICENSE-2.0
 #
 # Unless required by applicable law or agreed to in writing, software
 # distributed under the License is distributed on an "AS IS" BASIS,
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-#
-# See https://pre-commit.com for more information
-# See https://pre-commit.com/hooks.html for more hooks
-repos:
--   repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v4.0.1
-    hooks:
-    -   id: trailing-whitespace
-    -   id: end-of-file-fixer
-    -   id: check-yaml
--   repo: https://github.com/psf/black
-    rev: 23.7.0
-    hooks:
-    - id: black
--   repo: https://github.com/pycqa/flake8
-    rev: 6.1.0
-    hooks:
-    - id: flake8
+
+import typing
+
+from .. import client_query_shortmode
+
+if typing.TYPE_CHECKING:
+    import pytest
+
+
+def test_client_query_shortmode(capsys: "pytest.CaptureFixture[str]") -> None:
+    client_query_shortmode.client_query_shortmode()
+    out, err = capsys.readouterr()
+    assert "Query was run" in out
